@@ -451,11 +451,6 @@ const css = `
   animation: specter-spin 0.6s linear infinite;
   flex-shrink: 0;
 }
-.specter-spinner--dark {
-  border-color: rgba(109, 40, 217, 0.18);
-  border-top-color: #7c3aed;
-}
-
 .specter-actions {
   display: flex;
   align-items: center;
@@ -600,62 +595,6 @@ const css = `
   box-shadow: none;
 }
 
-.specter-ticket-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-.specter-ticket-title {
-  flex: 1;
-  min-width: 0;
-  box-sizing: border-box;
-  border: 1px solid #eceafb;
-  border-radius: 999px;
-  padding: 7px 12px;
-  font-family: inherit;
-  font-size: 12px;
-  color: #2c2747;
-  background: #f7f6fc;
-}
-.specter-ticket-title::placeholder {
-  color: #b4b0c9;
-}
-.specter-ticket-title:focus {
-  outline: none;
-  border-color: #a855f7;
-  background: #fff;
-}
-.specter-ticket-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #eceafb;
-  border-radius: 999px;
-  background: #fff;
-  color: #5b5575;
-  padding: 7px 14px;
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.specter-ticket-btn:hover:not(:disabled) {
-  border-color: #a855f7;
-  color: #6d28d9;
-  background: #f6effe;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(109, 40, 217, 0.13);
-}
-.specter-ticket-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.96);
-  box-shadow: none;
-}
-.specter-ticket-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .specter-feedback {
   margin: 10px 0 0;
   font-size: 12px;
@@ -735,7 +674,6 @@ const css = `
   .specter-iconbtn,
   .specter-crumb,
   .specter-guard-option,
-  .specter-ticket-btn,
   .specter-thumb,
   .specter-thumb-remove,
   .specter-resize-handle::after {

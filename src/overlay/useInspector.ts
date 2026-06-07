@@ -65,14 +65,11 @@ export default function useInspector() {
   // Defaults to 'shared' — editing the component everywhere is the common case.
   const [instanceVsShared, setInstanceVsShared] = useState<InstanceVsShared>('shared');
   const [feedback, setFeedback] = useState('');
-  const [ticketTitle, setTicketTitle] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
-  const [createdTicket, setCreatedTicket] = useState<{ id: string; url: string } | null>(null);
   // null = no bridge in this environment (clipboard-only) — indicator hidden.
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
-  // Bumped when the selection changes so an in-flight ticket call can't write
-  // into a panel that now shows a different element.
+  // Bumped when the selection changes so an in-flight onSend can't write
+  // feedback into a panel that now shows a different element.
   const createSeq = useRef(0);
 
   const anchor = chain[chainIndex] ?? null;
@@ -130,8 +127,6 @@ export default function useInspector() {
     setChainIndex(0);
     setInstanceVsShared('shared');
     setFeedback('');
-    setIsCreatingTicket(false);
-    setCreatedTicket(null);
   }, []);
 
   // Global hotkey: Cmd/Ctrl+Shift+E shows/hides the prompt box.
@@ -170,13 +165,11 @@ export default function useInspector() {
       e.stopPropagation();
       const found = findAnchor(e.target as Element);
       if (!found) return;
-      createSeq.current += 1; // a new selection invalidates in-flight ticket calls
+      createSeq.current += 1; // a new selection invalidates an in-flight onSend
       setChain(getAncestorChain(found));
       setChainIndex(0);
       setInstanceVsShared('shared');
       setFeedback('');
-      setIsCreatingTicket(false);
-      setCreatedTicket(null);
       setHoverAnchor(null);
       setSelecting(false);
     };
@@ -255,7 +248,6 @@ export default function useInspector() {
     setChain([]);
     setChainIndex(0);
     setInstanceVsShared('shared');
-    setCreatedTicket(null);
 
     try {
       const onSend = getConfig().onSend;
@@ -301,24 +293,6 @@ export default function useInspector() {
     setFeedback(ok ? 'Ticket context copied ✓' : 'Copy failed — clipboard unavailable in this context');
   }, [anchor, userRequest, instanceVsShared]);
 
-  const handleCreateTicket = useCallback(async () => {
-    const createTicket = getConfig().onCreateTicket;
-    if (!createTicket || !anchor || !ticketTitle.trim() || isCreatingTicket) return;
-    const seq = ++createSeq.current;
-    setIsCreatingTicket(true);
-    setCreatedTicket(null);
-    setFeedback('');
-    const payload = buildPayload(anchor, {
-      userRequest: userRequest.trim(),
-      instanceVsShared,
-    });
-    const result = await createTicket(payload, ticketTitle.trim());
-    if (seq !== createSeq.current) return; // selection changed while in flight
-    setIsCreatingTicket(false);
-    if (result.ok) setCreatedTicket({ id: result.id, url: result.url });
-    else setFeedback(result.error);
-  }, [anchor, ticketTitle, isCreatingTicket, userRequest, instanceVsShared]);
-
   return {
     images,
     addImages,
@@ -342,13 +316,8 @@ export default function useInspector() {
     setInstanceVsShared,
     feedback,
     bridgeOnline,
-    ticketTitle,
-    setTicketTitle,
     isSending,
-    isCreatingTicket,
-    createdTicket,
     handleSendToAgent,
     handleCopyTicket,
-    handleCreateTicket,
   };
 }

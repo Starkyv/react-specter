@@ -3,7 +3,7 @@
  *
  * One draggable card holding the whole flow: an Inspect button to arm element
  * selection, the captured element's context (breadcrumb + source), the change
- * request text box, and the outputs (Send / Copy for ticket / Create ticket).
+ * request text box, and the outputs (Send / Copy for ticket).
  * The ✕ in the right corner hides it back to the ◎ launcher.
  *
  * Always mounted (hidden via CSS) so the dragged position and scroll state
@@ -38,11 +38,6 @@ export interface PromptBoxProps {
   isSending: boolean;
   onSendToAgent: () => void;
   onCopyTicket: () => void;
-  ticketTitle: string;
-  onTicketTitleChange: (value: string) => void;
-  onCreateTicket: () => void;
-  isCreatingTicket: boolean;
-  createdTicket: { id: string; url: string } | null;
   onToggleInspect: () => void;
   onClearSelection: () => void;
   onHide: () => void;
@@ -76,16 +71,11 @@ export default function PromptBox({
   isSending,
   onSendToAgent,
   onCopyTicket,
-  ticketTitle,
-  onTicketTitleChange,
-  onCreateTicket,
-  isCreatingTicket,
-  createdTicket,
   onToggleInspect,
   onClearSelection,
   onHide,
 }: PromptBoxProps) {
-  const { agentLabel, onCreateTicket: createTicketFn } = getConfig();
+  const { agentLabel } = getConfig();
   const source = anchor ? sourceOf(anchor) : null;
 
   const boxRef = useRef<HTMLElement>(null);
@@ -419,50 +409,7 @@ export default function PromptBox({
             </button>
           </div>
 
-          {createTicketFn && anchor && (
-            <div className="specter-ticket-row">
-              <input
-                type="text"
-                className="specter-ticket-title"
-                value={ticketTitle}
-                onChange={(e) => onTicketTitleChange(e.target.value)}
-                placeholder="Ticket title"
-                aria-label="Ticket title"
-              />
-              <button
-                type="button"
-                className="specter-ticket-btn"
-                onClick={onCreateTicket}
-                disabled={!ticketTitle.trim() || isCreatingTicket}
-                title={
-                  ticketTitle.trim()
-                    ? "Create a ticket from this selection"
-                    : "Type a ticket title first"
-                }
-              >
-                {isCreatingTicket && (
-                  <span className="specter-spinner specter-spinner--dark" aria-hidden="true" />
-                )}
-                {isCreatingTicket ? "Creating…" : "Create ticket"}
-              </button>
-            </div>
-          )}
-
           {feedback && <p className="specter-feedback">{feedback}</p>}
-          {createdTicket && (
-            <p className="specter-feedback">
-              Ticket {createdTicket.id} created ✓ —{" "}
-              <a
-                className="specter-feedback-link"
-                href={createdTicket.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                open ticket
-              </a>
-            </p>
-          )}
-
         </div>
       </div>
       <div

@@ -8,10 +8,6 @@
 import { DEFAULT_BRIDGE_URL } from '../constants';
 import type { SpecterPayload } from './payload';
 
-export type CreateTicketResult = { ok: true; id: string; url: string } | { ok: false; error: string };
-
-export type CreateTicketFn = (payload: SpecterPayload, title: string) => Promise<CreateTicketResult>;
-
 /**
  * Custom send action: receives the assembled payload; an optionally returned
  * string is shown as the feedback line. Throw to show a failure.
@@ -49,11 +45,6 @@ export interface SpecterOptions {
   onSend?: SendFn;
   /** Cmd/Ctrl+Shift+E shows/hides the prompt box. Set false to disable. Default true. */
   hotkey?: boolean;
-  /**
-   * Optional "Create ticket" action. When provided, the panel shows a ticket
-   * title input + button and calls this with the assembled payload.
-   */
-  onCreateTicket?: CreateTicketFn;
 }
 
 export interface ResolvedSpecterConfig {
@@ -63,7 +54,6 @@ export interface ResolvedSpecterConfig {
   agentLabel: string;
   hotkey: boolean;
   onSend: SendFn | null;
-  onCreateTicket: CreateTicketFn | null;
 }
 
 const DEFAULT_RULES_PREAMBLE = [
@@ -82,7 +72,6 @@ function resolve(options: SpecterOptions): ResolvedSpecterConfig {
     agentLabel: options.agentLabel ?? 'Claude',
     hotkey: options.hotkey ?? true,
     onSend: options.onSend ?? null,
-    onCreateTicket: options.onCreateTicket ?? null,
   };
 }
 

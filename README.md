@@ -46,6 +46,22 @@ if (import.meta.env.DEV) {
 }
 ```
 
+Or, if you prefer JSX, the render-nothing **component wrapper** (this is what [`examples/vite-react`](./examples/vite-react) uses):
+
+```tsx
+// src/main.tsx
+import { Specter } from 'react-specter';
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+    {import.meta.env.DEV && <Specter />}
+  </StrictMode>,
+);
+```
+
+Both ship zero bytes to production: the dynamic import is never fetched, and the wrapper's statically-false `DEV` guard lets the import tree-shake away (`sideEffects: false`).
+
 Restart your agent session (so it picks up the MCP server), run `pnpm dev`, press **⌘⇧E** to open the prompt box, hit **Inspect**, click an element, type the change, *Send to Claude*, then type `/apply-edit` in Claude Code.
 
 ## Install per framework
@@ -167,6 +183,14 @@ Now clicking *Send to Claude* delivers the selection as a `<channel source="spec
 
 ### `mountSpecter(options)` / `<Specter {...options} />`
 
+Two equivalent ways to mount — imperative, or the render-nothing component wrapper (options are read once, at first mount):
+
+```tsx
+mountSpecter({ agentLabel: 'Claude', hotkey: true });
+// or, anywhere in JSX:
+<Specter agentLabel="Claude" hotkey />
+```
+
 | Option | Default | What it does |
 |---|---|---|
 | `enabled` | `true` | Hard off-switch. |
@@ -176,7 +200,6 @@ Now clicking *Send to Claude* delivers the selection as a `<channel source="spec
 | `agentLabel` | `"Claude"` | Display name on the send button. |
 | `hotkey` | `true` | ⌘⇧E / Ctrl⇧E shows/hides the prompt box. |
 | `onSend` | – | Custom send action — **replaces** the default bridge/clipboard delivery; see below. |
-| `onCreateTicket` | – | Enables the *Create ticket* button; see below. |
 
 `mountSpecter` returns an unmount function; `unmountSpecter()` is also exported.
 
@@ -209,20 +232,7 @@ mountSpecter({
 
 ## Tickets
 
-For testers (e.g. on a deployed, stamped dev environment), **Copy for ticket** puts paste-ready markdown (element, component, `source file:line`, route, ancestors) on the clipboard. For one-click ticket creation in your tracker, wire `onCreateTicket`:
-
-```ts
-import { mountSpecter, type SpecterPayload } from 'react-specter';
-
-mountSpecter({
-  onCreateTicket: async (payload: SpecterPayload, title: string) => {
-    // POST to your tracker's API, then:
-    return { ok: true, id: '123', url: 'https://tracker.example/123' };
-  },
-});
-```
-
-Calls run browser-direct (deployed testers have no localhost bridge) — use a low-privilege token and never define it in customer-facing builds.
+For testers (e.g. on a deployed, stamped dev environment), **Copy for ticket** puts paste-ready markdown (element, component, `source file:line`, route, ancestors) on the clipboard — paste it into any tracker. For deeper integrations (sending to your own backend or tracker API), use the `onSend` callback above.
 
 ## Stamped internal builds & production safety
 

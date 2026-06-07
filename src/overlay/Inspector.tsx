@@ -30,14 +30,9 @@ export default function Inspector() {
     setInstanceVsShared,
     feedback,
     bridgeOnline,
-    ticketTitle,
-    setTicketTitle,
     isSending,
-    isCreatingTicket,
-    createdTicket,
     handleSendToAgent,
     handleCopyTicket,
-    handleCreateTicket,
   } = useInspector();
 
   const outlineTarget = selecting ? hoverAnchor : panelOpen ? anchor : null;
@@ -66,11 +61,6 @@ export default function Inspector() {
         isSending={isSending}
         onSendToAgent={handleSendToAgent}
         onCopyTicket={handleCopyTicket}
-        ticketTitle={ticketTitle}
-        onTicketTitleChange={setTicketTitle}
-        onCreateTicket={handleCreateTicket}
-        isCreatingTicket={isCreatingTicket}
-        createdTicket={createdTicket}
         onToggleInspect={toggleInspect}
         onClearSelection={clearSelection}
         onHide={hidePanel}

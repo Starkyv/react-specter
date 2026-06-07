@@ -32,7 +32,7 @@
   },
   "sideEffects": false,
   "bin": {
-    "react-specter": "./bin/react-specter.mjs"
+    "react-specter": "bin/react-specter.mjs"
   },
   "files": [
     "dist",

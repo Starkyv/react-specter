@@ -533,38 +533,65 @@ const css = `
   opacity: 0.45;
   cursor: not-allowed;
 }
+@keyframes specter-glitter {
+  0%   { left: -80%; opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { left: 130%; opacity: 0; }
+}
 .specter-send {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 999px;
+  border-radius: 4px;
   background: ${ACCENT_GRADIENT};
   color: #fff;
-  padding: 9px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
   cursor: pointer;
   box-shadow: 0 3px 12px rgba(109, 40, 217, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
+/* static gloss layer */
 .specter-send::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, transparent 55%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, transparent 55%);
   border-radius: inherit;
   pointer-events: none;
 }
+/* glitter sweep layer */
+.specter-send::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -80%;
+  width: 55%;
+  height: 140%;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 80%
+  );
+  transform: skewX(-18deg);
+  pointer-events: none;
+  opacity: 0;
+}
+.specter-send:hover:not(:disabled)::before {
+  animation: specter-glitter 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
 .specter-send:hover:not(:disabled) {
-  box-shadow: 0 7px 22px rgba(109, 40, 217, 0.52);
-  transform: translateY(-2px);
+  box-shadow: 0 5px 18px rgba(109, 40, 217, 0.55);
+  transform: translateY(-2px) scale(1.08);
 }
 .specter-send:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
+  transform: translateY(0) scale(0.94);
   box-shadow: 0 1px 6px rgba(109, 40, 217, 0.28);
 }
 .specter-send:disabled {
@@ -635,6 +662,7 @@ const css = `
   color: #027a48;
   animation: specter-feedback-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .specter-feedback-link {
   color: #6d28d9;
   text-decoration: underline;
@@ -683,8 +711,7 @@ const css = `
     flex-wrap: wrap;
   }
   .specter-send {
-    flex: 1;
-    justify-content: center;
+    flex-shrink: 0;
   }
 }
 
@@ -695,6 +722,9 @@ const css = `
   .specter-thumb,
   .specter-feedback {
     animation: none;
+  }
+  .specter-send::before {
+    display: none;
   }
   .specter-toggle,
   .specter-promptbox,

@@ -122,6 +122,8 @@ export default function useInspector() {
     setImages(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  const clearImages = useCallback(() => setImages([]), []);
+
   const clearSelection = useCallback(() => {
     createSeq.current += 1;
     setChain([]);
@@ -245,38 +247,49 @@ export default function useInspector() {
       images,
     });
 
-    // A configured onSend REPLACES the default bridge/clipboard delivery.
-    const onSend = getConfig().onSend;
-    if (onSend) {
-      const seq = createSeq.current;
-      setIsSending(true);
-      setFeedback('');
-      try {
-        const message = await onSend(payload);
-        if (seq !== createSeq.current) return; // selection changed while in flight
-        setFeedback(typeof message === 'string' && message ? message : 'Sent ✓');
-      } catch (err) {
-        if (seq !== createSeq.current) return;
-        setFeedback(err instanceof Error && err.message ? `Send failed — ${err.message}` : 'Send failed');
-      } finally {
-        setIsSending(false);
-      }
-      return;
-    }
+    // Clear the form and selection immediately — payload is already captured.
+    setIsSending(true);
+    setFeedback('');
+    setUserRequest('');
+    setImages([]);
+    setChain([]);
+    setChainIndex(0);
+    setInstanceVsShared('shared');
+    setCreatedTicket(null);
 
-    const result = await deliver(payload);
-    // Each delivery is also a fresh liveness signal for the status dot.
-    if (result.method === 'bridge') setBridgeOnline(true);
-    else setBridgeOnline(prev => (prev === null ? prev : false));
-    if (result.method === 'bridge') {
-      setFeedback(
-        result.channelPushed
-          ? 'Sent to Claude ✓ — applies automatically in a --channels session (else run /apply-edit)'
-          : 'Sent to bridge ✓ — run /apply-edit in your agent'
-      );
-    } else if (result.method === 'clipboard') setFeedback('Copied ✓ — paste into your agent');
-    else setFeedback('Copy failed — clipboard unavailable in this context');
+    try {
+      const onSend = getConfig().onSend;
+      if (onSend) {
+        const seq = createSeq.current;
+        const message = await onSend(payload);
+        if (seq !== createSeq.current) return;
+        setFeedback(typeof message === 'string' && message ? message : 'Sent ✓');
+      } else {
+        const result = await deliver(payload);
+        if (result.method === 'bridge') setBridgeOnline(true);
+        else setBridgeOnline(prev => (prev === null ? prev : false));
+        if (result.method === 'bridge') {
+          setFeedback(
+            result.channelPushed
+              ? 'Sent to Claude, applies automatically in a --channels session (else run /apply-edit)'
+              : 'Sent to bridge, run /apply-edit in your agent'
+          );
+        } else if (result.method === 'clipboard') setFeedback('Copied ✓ — paste into your agent');
+        else setFeedback('Copy failed — clipboard unavailable in this context');
+      }
+    } catch (err) {
+      setFeedback(err instanceof Error && err.message ? `Send failed — ${err.message}` : 'Send failed');
+    } finally {
+      setIsSending(false);
+    }
   }, [anchor, userRequest, instanceVsShared, images, isSending]);
+
+  // Auto-clear feedback after 5 s so it never lingers indefinitely.
+  useEffect(() => {
+    if (!feedback) return;
+    const id = setTimeout(() => setFeedback(''), 5000);
+    return () => clearTimeout(id);
+  }, [feedback]);
 
   const handleCopyTicket = useCallback(async () => {
     if (!anchor) return;
@@ -310,6 +323,7 @@ export default function useInspector() {
     images,
     addImages,
     removeImage,
+    clearImages,
     panelOpen,
     selecting,
     openPanel,

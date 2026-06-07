@@ -5,10 +5,24 @@ export default function Counter() {
 
   return (
     <div className="counter">
-      <button className="counter-button" onClick={() => setCount(c => c + 1)}>
-        count is {count}
-      </button>
-      <p className="counter-hint">Click the button — then try asking specter to restyle it.</p>
+      <div className="counter-controls">
+        <button
+          className="counter-btn counter-btn-minus"
+          onClick={() => setCount(c => c - 1)}
+          aria-label="Decrease"
+        >
+          −
+        </button>
+        <div className="counter-display">{count}</div>
+        <button
+          className="counter-btn counter-btn-plus"
+          onClick={() => setCount(c => c + 1)}
+          aria-label="Increase"
+        >
+          +
+        </button>
+      </div>
+      <p className="counter-hint">Click + or − to adjust the counter.</p>
     </div>
   );
 }

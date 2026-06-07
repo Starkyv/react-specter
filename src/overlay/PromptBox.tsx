@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import cx from "./cx";
-import { CopyIcon, CrosshairIcon, ImageIcon, SparkleIcon, XIcon } from "./icons";
+import { CopyIcon, CrosshairIcon, ImageIcon, SendIcon, XIcon } from "./icons";
 import { getConfig } from "./options";
 import { componentOf, InstanceVsShared, sourceOf, SpecterImage } from "./payload";
 
@@ -285,7 +285,7 @@ export default function PromptBox({
             <p className="specter-empty">
               {selecting
                 ? "Click an element in the page… (Esc cancels)"
-                : "No element selected — press Inspect, then click an element."}
+                : "No element selected, press Inspect, then click an element."}
             </p>
           )}
 
@@ -402,18 +402,20 @@ export default function PromptBox({
               className="specter-send"
               onClick={onSendToAgent}
               disabled={!anchor || !userRequest.trim() || isSending}
+              aria-label={isSending ? "Sending…" : `Send to ${agentLabel}`}
               title={
                 !anchor
                   ? "Select an element first"
-                  : `Send the instruction to ${agentLabel}`
+                  : isSending
+                  ? "Sending…"
+                  : `Send to ${agentLabel}`
               }
             >
               {isSending ? (
                 <span className="specter-spinner" aria-hidden="true" />
               ) : (
-                <SparkleIcon size={13} />
+                <SendIcon size={15} />
               )}
-              {isSending ? "Sending…" : `Send to ${agentLabel}`}
             </button>
           </div>
 
@@ -460,6 +462,7 @@ export default function PromptBox({
               </a>
             </p>
           )}
+
         </div>
       </div>
       <div

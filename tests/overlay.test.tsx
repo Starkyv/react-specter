@@ -149,12 +149,21 @@ describe('mountSpecter', () => {
     await waitFor(() => document.querySelector('.specter-breadcrumb'));
 
     // Attach an image through the hidden file input.
-    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'mock.png', { type: 'image/png' });
-    const input = document.querySelector('.specter-file-input') as HTMLInputElement;
-    Object.defineProperty(input, 'files', { value: [file], configurable: true });
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    const attach = () => {
+      const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'mock.png', { type: 'image/png' });
+      const input = document.querySelector('.specter-file-input') as HTMLInputElement;
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    attach();
     await waitFor(() => document.querySelector('.specter-thumb img'));
     expect((document.querySelector('.specter-thumb img') as HTMLImageElement).src).toContain('data:image/png;base64,');
+
+    // The remove button drops the thumbnail.
+    (document.querySelector('.specter-thumb-remove') as HTMLElement).click();
+    await waitFor(() => !document.querySelector('.specter-thumb'));
+    attach();
+    await waitFor(() => document.querySelector('.specter-thumb img'));
 
     const textarea = document.querySelector('.specter-request') as HTMLTextAreaElement;
     const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
@@ -168,9 +177,9 @@ describe('mountSpecter', () => {
     expect(sent[0].images[0]).toMatchObject({ name: 'mock.png', mediaType: 'image/png' });
     expect(sent[0].images[0].dataBase64.length).toBeGreaterThan(0);
 
-    // The remove button drops the thumbnail.
-    (document.querySelector('.specter-thumb-remove') as HTMLElement).click();
+    // Sending clears the form — the thumbnail strip and draft go with it.
     await waitFor(() => !document.querySelector('.specter-thumb'));
+    expect((document.querySelector('.specter-request') as HTMLTextAreaElement).value).toBe('');
 
     target.remove();
   });

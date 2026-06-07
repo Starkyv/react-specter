@@ -1,5 +1,7 @@
 import Counter from './components/Counter';
 import FeatureCard from './components/FeatureCard';
+import PromptBox from './components/PromptBox';
+import Dashboard from './components/Dashboard';
 
 export default function App() {
   return (
@@ -13,6 +15,10 @@ export default function App() {
       </header>
 
       <main>
+        <PromptBox />
+
+        <Dashboard />
+
         <section id="features" className="features">
           {/* FeatureCard renders three times from one call site — clicking one
               should trigger the "just this instance, or everywhere?" prompt. */}

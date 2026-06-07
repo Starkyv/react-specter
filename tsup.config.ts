@@ -15,7 +15,10 @@ export default defineConfig([
     target: 'node18',
     sourcemap: true,
     splitting: false,
-    clean: true,
+    // No per-config clean: both configs share outDir and run concurrently, so
+    // a config-level clean races the other's DTS output. The build script
+    // clears dist once up front instead.
+    clean: false,
     outDir: 'dist',
   },
   // Browser-side entry: the inspector overlay.

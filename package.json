@@ -86,16 +86,6 @@
         "default": "./dist/next.cjs"
       }
     },
-    "./clickup": {
-      "import": {
-        "types": "./dist/clickup.d.ts",
-        "default": "./dist/clickup.js"
-      },
-      "require": {
-        "types": "./dist/clickup.d.cts",
-        "default": "./dist/clickup.cjs"
-      }
-    },
     "./package.json": "./package.json"
   },
   "scripts": {

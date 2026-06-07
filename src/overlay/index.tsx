@@ -21,8 +21,8 @@ import Inspector from './Inspector';
 import { setConfig, type SpecterOptions } from './options';
 import { injectStyles, removeStyles } from './styles';
 
-export type { CreateTicketFn, CreateTicketResult, SpecterOptions } from './options';
-export type { InstanceVsShared, SpecterPayload } from './payload';
+export type { CreateTicketFn, CreateTicketResult, SendFn, SpecterOptions } from './options';
+export type { InstanceVsShared, SpecterImage, SpecterPayload } from './payload';
 
 let root: Root | null = null;
 let container: HTMLElement | null = null;

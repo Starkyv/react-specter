@@ -8,8 +8,13 @@ import { getConfig } from './options';
 import { serializeInstruction, SpecterPayload } from './payload';
 
 const BRIDGE_TIMEOUT_MS = 800;
+const HEALTH_TIMEOUT_MS = 1500;
 
-export type DeliveryResult = { method: 'bridge' } | { method: 'clipboard' } | { method: 'failed'; text: string };
+export type DeliveryResult =
+  /** channelPushed: the bridge pushed the selection into the live session (Claude Code channels). */
+  | { method: 'bridge'; channelPushed: boolean }
+  | { method: 'clipboard' }
+  | { method: 'failed'; text: string };
 
 export async function copyText(text: string): Promise<boolean> {
   try {
@@ -44,17 +49,19 @@ function bridgeReachable(): boolean {
   return ['localhost', '127.0.0.1'].includes(window.location.hostname);
 }
 
-async function tryBridge(payload: SpecterPayload): Promise<boolean> {
-  if (!bridgeReachable()) return false;
+/**
+ * Is the bridge — and with it the agent session that spawned it — alive?
+ * Returns null when the bridge doesn't apply here (off-localhost without an
+ * explicit bridgeUrl), so the UI can hide the indicator instead of crying
+ * wolf in clipboard-only environments.
+ */
+export async function checkBridgeHealth(): Promise<boolean | null> {
+  if (!bridgeReachable()) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), BRIDGE_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
   try {
-    const res = await fetch(getConfig().bridgeUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+    const url = new URL('/health', getConfig().bridgeUrl).toString();
+    const res = await fetch(url, { signal: controller.signal });
     return res.ok;
   } catch {
     return false;
@@ -63,9 +70,39 @@ async function tryBridge(payload: SpecterPayload): Promise<boolean> {
   }
 }
 
+async function tryBridge(payload: SpecterPayload): Promise<{ delivered: boolean; channelPushed: boolean }> {
+  if (!bridgeReachable()) return { delivered: false, channelPushed: false };
+  const controller = new AbortController();
+  // Image-bearing payloads are megabytes of base64 — give the upload room.
+  const timeout = payload.images.length > 0 ? 8000 : BRIDGE_TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(getConfig().bridgeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    if (!res.ok) return { delivered: false, channelPushed: false };
+    let channelPushed = false;
+    try {
+      const body = (await res.json()) as { channelPushed?: boolean };
+      channelPushed = body?.channelPushed === true;
+    } catch {
+      // Older bridge responding 204 with no body — queue-only.
+    }
+    return { delivered: true, channelPushed };
+  } catch {
+    return { delivered: false, channelPushed: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Bridge first, clipboard fallback. */
 export async function deliver(payload: SpecterPayload): Promise<DeliveryResult> {
-  if (await tryBridge(payload)) return { method: 'bridge' };
+  const bridge = await tryBridge(payload);
+  if (bridge.delivered) return { method: 'bridge', channelPushed: bridge.channelPushed };
   const text = serializeInstruction(payload);
   if (await copyText(text)) return { method: 'clipboard' };
   return { method: 'failed', text };

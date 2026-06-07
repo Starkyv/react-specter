@@ -3,8 +3,9 @@
 **Select-to-edit for React apps.** Click an element in your running dev app, type a change in plain language, and your AI coding agent (Claude Code or any MCP-capable agent) edits the real source file — no hunting for "where is this button in the code?".
 
 ```
-pnpm dev  →  ◎ / ⌘⇧E  →  click an element  →  type the change  →  Send
-→  in your agent: /apply-edit  →  confirm the echoed plan  →  refresh & test
+pnpm dev  →  ✦ / ⌘⇧E opens the prompt box  →  Inspect  →  click an element
+→  describe the change  →  Send  →  Claude starts the edit automatically
+   (--channels session — else run /apply-edit)  →  refresh & test
 ```
 
 Works with **every React framework**: Vite, Next.js (webpack *and* Turbopack), Remix, Astro, CRA, Gatsby, or any Babel/webpack pipeline.
@@ -14,8 +15,8 @@ Works with **every React framework**: Vite, Next.js (webpack *and* Turbopack), R
 | Part | What it does |
 |---|---|
 | **Annotation** (build plugin) | In dev, every *host* JSX element (`<div>`, `<button>`, …) is stamped at compile time with `data-specter-file` / `data-specter-line` / `data-specter-component`. Component JSX (`<Button>`) is never given props; spreads can't clobber the stamps; the transform is idempotent. |
-| **Overlay** (runtime) | A floating inspector (◎ button / ⌘⇧E) in its own React root, fully outside your app tree. Hover outlines elements, click captures one, a breadcrumb walks the ancestor components, and a panel takes your change request. If the same JSX call site renders N times you're asked: *just this instance, or the component everywhere?* |
-| **Bridge** (local MCP server) | One process, two faces: MCP over stdio for your agent (`get_pending_edit` / `clear_pending_edit`) and HTTP on `127.0.0.1:7331` for the overlay's POST. Latest-wins queue of one; dies with the agent session. Off-localhost the overlay falls back to copying the assembled instruction to your clipboard. |
+| **Overlay** (runtime) | A floating prompt box (✦ button / ⌘⇧E) in its own React root, fully outside your app tree — drag it anywhere, hide it via the ✕ in its corner (draft and selection survive). Its **Inspect** button arms selection: hover outlines elements, click captures one into the box, a breadcrumb walks the ancestor components, then you type the change — **attach images** (paste, drop, or pick; e.g. a design mock) — and send. If the same JSX call site renders N times you're asked: *just this instance, or the component everywhere?* |
+| **Bridge** (local MCP server) | One process, two faces: MCP over stdio for your agent (`get_pending_edit` / `clear_pending_edit`) and HTTP on `127.0.0.1:7331` for the overlay's POST. Every Send is **pushed straight into the session** as a Claude Code channel event (auto-applies in `--channels` sessions) *and* queued latest-wins for the `/apply-edit` pull path. Dies with the agent session; off-localhost the overlay falls back to copying the assembled instruction to your clipboard. |
 | **`/apply-edit`** (agent command) | A shipped command template: pull the selection, anchor on `file:line`, trace the change to where it actually belongs, **echo a plan and wait for confirmation**, edit, self-check, clear the queue. |
 
 Default production builds ship **zero** specter bytes — annotation is dev-only and the overlay refuses to mount when `NODE_ENV === 'production'` (both overridable for deliberately stamped internal builds).
@@ -45,7 +46,7 @@ if (import.meta.env.DEV) {
 }
 ```
 
-Restart your agent session (so it picks up the MCP server), run `pnpm dev`, press **⌘⇧E**, click an element, type the change, *Send to Claude*, then type `/apply-edit` in Claude Code.
+Restart your agent session (so it picks up the MCP server), run `pnpm dev`, press **⌘⇧E** to open the prompt box, hit **Inspect**, click an element, type the change, *Send to Claude*, then type `/apply-edit` in Claude Code.
 
 ## Install per framework
 
@@ -142,7 +143,25 @@ For the overlay in webpack/Babel setups, use the same guarded dynamic import as 
 
 Any MCP-capable agent works the same way: spawn `react-specter bridge` over stdio and call `get_pending_edit` / `clear_pending_edit`.
 
+**Images:** attachments (up to 4 × 5 MB — paste, drop, or pick in the prompt box) ride along with the selection. The bridge writes them to `node_modules/.cache/react-specter/images/` and hands the agent `imagePaths` to view with its Read tool; files are replaced latest-wins and deleted on `clear_pending_edit`. The clipboard fallback is text-only — attached images are noted but not carried.
+
 If two agent sessions run at once, the second bridge can't bind the port — it stays alive and its `get_pending_edit` tells you which session to use instead. Port override: `SPECTER_BRIDGE_PORT` env (keep the overlay's `bridgeUrl` in sync).
+
+### Auto-apply — skip `/apply-edit` entirely
+
+Claude Code's **channels** (research preview, ≥ 2.1.80) let the bridge push each Send straight into your running session. Start the session with:
+
+```sh
+claude --channels server:specter
+# some versions require, for project-local servers:
+claude --dangerously-load-development-channels server:specter
+```
+
+Now clicking *Send to Claude* delivers the selection as a `<channel source="specter">` event and **Claude starts the edit immediately** (as soon as its current turn finishes) — no `/apply-edit`, no confirmation step. Mind the trade-offs:
+
+- The pushed instruction asks Claude to state a one-line plan and make the minimal edit — but nobody confirms before files change. Prefer the `/apply-edit` flow when you want the echoed-plan checkpoint.
+- Anything that can POST to `127.0.0.1:7331` can inject a prompt into your session. The bridge binds localhost-only; still, treat `--channels` sessions as dev-machine-only.
+- MCP being pull-based is why this needs channels: an MCP server cannot otherwise make an interactive session act. Sessions started *without* `--channels` silently drop the push — the selection stays queued, and `/apply-edit` keeps working unchanged.
 
 ## Options
 
@@ -155,10 +174,31 @@ If two agent sessions run at once, the second bridge can't bind the port — it 
 | `bridgeUrl` | `http://127.0.0.1:7331/pending-edit` | Bridge endpoint. When set explicitly, the bridge is always attempted; by default only when the page runs on localhost. |
 | `rulesPreamble` | generic rules | Text prepended to every clipboard instruction — encode your repo's conventions here. |
 | `agentLabel` | `"Claude"` | Display name on the send button. |
-| `hotkey` | `true` | ⌘⇧E / Ctrl⇧E toggle. |
+| `hotkey` | `true` | ⌘⇧E / Ctrl⇧E shows/hides the prompt box. |
+| `onSend` | – | Custom send action — **replaces** the default bridge/clipboard delivery; see below. |
 | `onCreateTicket` | – | Enables the *Create ticket* button; see below. |
 
 `mountSpecter` returns an unmount function; `unmountSpecter()` is also exported.
+
+### Custom send action (`onSend`)
+
+When `onSend` is set, clicking the send button calls it with the assembled payload instead of the bridge/clipboard path — wire it to your own backend, agent, or queue. Return a string to show as the feedback line (omit it for a plain "Sent ✓"); throw to show a failure. The button shows *Sending…* while a returned promise is in flight. Pair with `agentLabel` to relabel the button.
+
+```ts
+import { mountSpecter, type SpecterPayload } from 'react-specter';
+
+mountSpecter({
+  agentLabel: 'DevBot',
+  onSend: async (payload: SpecterPayload) => {
+    await fetch('/api/devbot/edits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return 'Queued for DevBot ✓';
+  },
+});
+```
 
 ### Build adapters
 
@@ -169,21 +209,20 @@ If two agent sessions run at once, the second bridge can't bind the port — it 
 
 ## Tickets
 
-Two zero-config outputs exist for testers (e.g. on a deployed, stamped dev environment): **Copy for ticket** puts paste-ready markdown (element, component, `source file:line`, route, ancestors) on the clipboard. For one-click ticket creation, wire `onCreateTicket` — a ClickUp implementation ships:
+For testers (e.g. on a deployed, stamped dev environment), **Copy for ticket** puts paste-ready markdown (element, component, `source file:line`, route, ancestors) on the clipboard. For one-click ticket creation in your tracker, wire `onCreateTicket`:
 
 ```ts
-import { mountSpecter } from 'react-specter';
-import { createClickUpTicket } from 'react-specter/clickup';
+import { mountSpecter, type SpecterPayload } from 'react-specter';
 
 mountSpecter({
-  onCreateTicket: createClickUpTicket({
-    token: import.meta.env.VITE_CLICKUP_TOKEN, // low-privilege bot token
-    listId: import.meta.env.VITE_CLICKUP_LIST_ID,
-  }),
+  onCreateTicket: async (payload: SpecterPayload, title: string) => {
+    // POST to your tracker's API, then:
+    return { ok: true, id: '123', url: 'https://tracker.example/123' };
+  },
 });
 ```
 
-The call is browser-direct by design (deployed testers have no localhost bridge) — scope the token to a triage list and never define these variables in customer-facing builds.
+Calls run browser-direct (deployed testers have no localhost bridge) — use a low-privilege token and never define it in customer-facing builds.
 
 ## Stamped internal builds & production safety
 

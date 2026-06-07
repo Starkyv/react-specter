@@ -1,17 +1,20 @@
 /**
- * react-specter overlay — top-level inspector: composes the floating toggle,
- * the hover outline, and the selection panel from the hook's state machine.
+ * react-specter overlay — top-level inspector: the ◎ launcher (when the box
+ * is hidden), the hover outline, and the floating prompt box.
  */
 import FloatingToggle from './FloatingToggle';
 import HoverOutline from './HoverOutline';
-import SelectionPanel from './SelectionPanel';
+import PromptBox from './PromptBox';
 import useInspector from './useInspector';
 
 export default function Inspector() {
   const {
-    mode,
-    toggle,
-    reset,
+    panelOpen,
+    selecting,
+    openPanel,
+    hidePanel,
+    toggleInspect,
+    clearSelection,
     hoverAnchor,
     anchor,
     chain,
@@ -19,12 +22,17 @@ export default function Inspector() {
     setChainIndex,
     userRequest,
     setUserRequest,
+    images,
+    addImages,
+    removeImage,
     instanceCount,
     instanceVsShared,
     setInstanceVsShared,
     feedback,
+    bridgeOnline,
     ticketTitle,
     setTicketTitle,
+    isSending,
     isCreatingTicket,
     createdTicket,
     handleSendToAgent,
@@ -32,34 +40,41 @@ export default function Inspector() {
     handleCreateTicket,
   } = useInspector();
 
-  const outlineTarget = mode === 'selecting' ? hoverAnchor : mode === 'captured' ? anchor : null;
+  const outlineTarget = selecting ? hoverAnchor : panelOpen ? anchor : null;
 
   return (
     <>
-      <FloatingToggle active={mode !== 'idle'} onToggle={mode === 'captured' ? reset : toggle} />
-      <HoverOutline target={outlineTarget} captured={mode === 'captured'} />
-      {mode === 'captured' && anchor && (
-        <SelectionPanel
-          anchor={anchor}
-          chain={chain}
-          chainIndex={chainIndex}
-          onChainIndexChange={setChainIndex}
-          userRequest={userRequest}
-          onUserRequestChange={setUserRequest}
-          instanceCount={instanceCount}
-          instanceVsShared={instanceVsShared}
-          onInstanceVsSharedChange={setInstanceVsShared}
-          feedback={feedback}
-          onSendToAgent={handleSendToAgent}
-          onCopyTicket={handleCopyTicket}
-          ticketTitle={ticketTitle}
-          onTicketTitleChange={setTicketTitle}
-          onCreateTicket={handleCreateTicket}
-          isCreatingTicket={isCreatingTicket}
-          createdTicket={createdTicket}
-          onClose={reset}
-        />
-      )}
+      {!panelOpen && <FloatingToggle onOpen={openPanel} />}
+      <HoverOutline target={outlineTarget} captured={!selecting && !!anchor} />
+      <PromptBox
+        open={panelOpen}
+        selecting={selecting}
+        anchor={anchor}
+        chain={chain}
+        chainIndex={chainIndex}
+        onChainIndexChange={setChainIndex}
+        userRequest={userRequest}
+        onUserRequestChange={setUserRequest}
+        images={images}
+        onAddImages={addImages}
+        onRemoveImage={removeImage}
+        instanceCount={instanceCount}
+        instanceVsShared={instanceVsShared}
+        onInstanceVsSharedChange={setInstanceVsShared}
+        feedback={feedback}
+        bridgeOnline={bridgeOnline}
+        isSending={isSending}
+        onSendToAgent={handleSendToAgent}
+        onCopyTicket={handleCopyTicket}
+        ticketTitle={ticketTitle}
+        onTicketTitleChange={setTicketTitle}
+        onCreateTicket={handleCreateTicket}
+        isCreatingTicket={isCreatingTicket}
+        createdTicket={createdTicket}
+        onToggleInspect={toggleInspect}
+        onClearSelection={clearSelection}
+        onHide={hidePanel}
+      />
     </>
   );
 }

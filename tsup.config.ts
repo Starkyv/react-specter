@@ -18,13 +18,12 @@ export default defineConfig([
     clean: true,
     outDir: 'dist',
   },
-  // Browser-side entries: the inspector overlay and optional integrations.
+  // Browser-side entry: the inspector overlay.
   // The 'use client' banner makes the bare import work inside Next.js App
   // Router server components without a wrapper file.
   {
     entry: {
       'overlay/index': 'src/overlay/index.tsx',
-      clickup: 'src/integrations/clickup.ts',
     },
     format: ['esm', 'cjs'],
     dts: true,

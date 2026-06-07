@@ -12,6 +12,12 @@ export type CreateTicketResult = { ok: true; id: string; url: string } | { ok: f
 
 export type CreateTicketFn = (payload: SpecterPayload, title: string) => Promise<CreateTicketResult>;
 
+/**
+ * Custom send action: receives the assembled payload; an optionally returned
+ * string is shown as the feedback line. Throw to show a failure.
+ */
+export type SendFn = (payload: SpecterPayload) => string | void | Promise<string | void>;
+
 export interface SpecterOptions {
   /** Hard off-switch. Default true. */
   enabled?: boolean;
@@ -35,12 +41,17 @@ export interface SpecterOptions {
   rulesPreamble?: string;
   /** Display name of your coding agent in the UI. Default "Claude". */
   agentLabel?: string;
-  /** Cmd/Ctrl+Shift+E toggles select mode. Set false to disable. Default true. */
+  /**
+   * Custom action for the send button. When provided it REPLACES the default
+   * bridge/clipboard delivery — wire the payload to your own backend, agent,
+   * or queue. Pair with `agentLabel` to relabel the button.
+   */
+  onSend?: SendFn;
+  /** Cmd/Ctrl+Shift+E shows/hides the prompt box. Set false to disable. Default true. */
   hotkey?: boolean;
   /**
    * Optional "Create ticket" action. When provided, the panel shows a ticket
    * title input + button and calls this with the assembled payload.
-   * See `react-specter/clickup` for a ready-made ClickUp implementation.
    */
   onCreateTicket?: CreateTicketFn;
 }
@@ -51,6 +62,7 @@ export interface ResolvedSpecterConfig {
   rulesPreamble: string;
   agentLabel: string;
   hotkey: boolean;
+  onSend: SendFn | null;
   onCreateTicket: CreateTicketFn | null;
 }
 
@@ -69,6 +81,7 @@ function resolve(options: SpecterOptions): ResolvedSpecterConfig {
     rulesPreamble: options.rulesPreamble ?? DEFAULT_RULES_PREAMBLE,
     agentLabel: options.agentLabel ?? 'Claude',
     hotkey: options.hotkey ?? true,
+    onSend: options.onSend ?? null,
     onCreateTicket: options.onCreateTicket ?? null,
   };
 }

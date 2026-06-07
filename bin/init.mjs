@@ -61,6 +61,9 @@ export async function runInit(argv = []) {
       "       import('react-specter').then(m => m.mountSpecter());",
       '  3. Restart your agent session so it picks up the new MCP server,',
       '     then: select an element in the browser → Send → /apply-edit.',
+      '  4. Optional auto-apply (Claude Code ≥ 2.1.80, research preview):',
+      '     start the session as `claude --channels server:specter` and Send',
+      '     starts the edit immediately — no /apply-edit needed.',
     ].join('\n')
   );
 

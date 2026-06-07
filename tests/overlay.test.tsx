@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { mountSpecter, unmountSpecter } from '../src/overlay';
+import { mountSpecter, unmountSpecter, type SpecterPayload } from '../src/overlay';
 
 async function waitFor(cond: () => unknown, ms = 2000): Promise<void> {
   const start = Date.now();
@@ -13,6 +13,7 @@ async function waitFor(cond: () => unknown, ms = 2000): Promise<void> {
 
 afterEach(() => {
   unmountSpecter();
+  vi.unstubAllGlobals();
 });
 
 describe('mountSpecter', () => {
@@ -41,5 +42,156 @@ describe('mountSpecter', () => {
   it('respects enabled: false', () => {
     mountSpecter({ enabled: false });
     expect(document.getElementById('specter-root')).toBeNull();
+  });
+
+  it('toggle opens the prompt box; its ✕ hides it and brings the toggle back', async () => {
+    mountSpecter();
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    // The box is mounted but hidden until opened.
+    expect(document.querySelector('.specter-promptbox.is-hidden')).toBeTruthy();
+
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+    expect(document.querySelector('.specter-toggle')).toBeNull(); // launcher hidden while open
+    expect(document.querySelector('.specter-inspect')).toBeTruthy();
+    expect(document.querySelector('.specter-request')).toBeTruthy();
+
+    (document.querySelector('.specter-close') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox.is-hidden'));
+    await waitFor(() => document.querySelector('.specter-toggle'));
+  });
+
+  it('shows the agent status dot: offline when the bridge is unreachable, online when healthy', async () => {
+    // Bridge down: every health probe fails.
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('connection refused'))));
+    mountSpecter();
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-status.is-offline'));
+    expect(document.querySelector('.specter-status')?.textContent).toContain('Offline');
+
+    // Bridge comes up: the indicator flips on a later poll/send. Re-open to
+    // trigger an immediate re-check instead of waiting out the interval.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify({ ok: true, pending: false }), { status: 200 })))
+    );
+    (document.querySelector('.specter-close') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-status.is-online'));
+    expect(document.querySelector('.specter-status')?.textContent).toContain('Online');
+  });
+
+  it('a custom onSend replaces the default delivery and shows its feedback', async () => {
+    // A stamped app element to capture.
+    const target = document.createElement('button');
+    target.setAttribute('data-specter-file', 'src/Demo.tsx');
+    target.setAttribute('data-specter-line', '3');
+    target.setAttribute('data-specter-component', 'Demo');
+    target.textContent = 'hello';
+    document.body.appendChild(target);
+
+    const sent: SpecterPayload[] = [];
+    mountSpecter({
+      onSend: payload => {
+        sent.push(payload);
+        return 'Queued in MyTracker ✓';
+      },
+    });
+
+    // Open the box, arm inspect, capture the element.
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+    (document.querySelector('.specter-inspect') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-inspect.is-active'));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await waitFor(() => document.querySelector('.specter-breadcrumb'));
+
+    // Type a request and send.
+    const textarea = document.querySelector('.specter-request') as HTMLTextAreaElement;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    setValue.call(textarea, 'rename it');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => !(document.querySelector('.specter-send') as HTMLButtonElement).disabled);
+    (document.querySelector('.specter-send') as HTMLElement).click();
+
+    await waitFor(() => sent.length === 1);
+    expect(sent[0]).toMatchObject({
+      component: 'Demo',
+      sourceFile: 'src/Demo.tsx',
+      sourceLine: 3,
+      tagName: 'button',
+      userRequest: 'rename it',
+    });
+    await waitFor(() => document.querySelector('.specter-feedback')?.textContent === 'Queued in MyTracker ✓');
+
+    target.remove();
+  });
+
+  it('attached images show as thumbnails and travel in the payload', async () => {
+    const target = document.createElement('button');
+    target.setAttribute('data-specter-file', 'src/Demo.tsx');
+    target.setAttribute('data-specter-line', '3');
+    target.setAttribute('data-specter-component', 'Demo');
+    document.body.appendChild(target);
+
+    const sent: SpecterPayload[] = [];
+    mountSpecter({ onSend: payload => void sent.push(payload) });
+
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+    (document.querySelector('.specter-inspect') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-inspect.is-active'));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await waitFor(() => document.querySelector('.specter-breadcrumb'));
+
+    // Attach an image through the hidden file input.
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'mock.png', { type: 'image/png' });
+    const input = document.querySelector('.specter-file-input') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await waitFor(() => document.querySelector('.specter-thumb img'));
+    expect((document.querySelector('.specter-thumb img') as HTMLImageElement).src).toContain('data:image/png;base64,');
+
+    const textarea = document.querySelector('.specter-request') as HTMLTextAreaElement;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    setValue.call(textarea, 'match the mock');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => !(document.querySelector('.specter-send') as HTMLButtonElement).disabled);
+    (document.querySelector('.specter-send') as HTMLElement).click();
+
+    await waitFor(() => sent.length === 1);
+    expect(sent[0].images).toHaveLength(1);
+    expect(sent[0].images[0]).toMatchObject({ name: 'mock.png', mediaType: 'image/png' });
+    expect(sent[0].images[0].dataBase64.length).toBeGreaterThan(0);
+
+    // The remove button drops the thumbnail.
+    (document.querySelector('.specter-thumb-remove') as HTMLElement).click();
+    await waitFor(() => !document.querySelector('.specter-thumb'));
+
+    target.remove();
+  });
+
+  it('hiding the box preserves the draft request', async () => {
+    mountSpecter();
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+
+    const textarea = document.querySelector('.specter-request') as HTMLTextAreaElement;
+    // Drive React's onChange through the native value setter.
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    setValue.call(textarea, 'make it green');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => textarea.value === 'make it green');
+
+    (document.querySelector('.specter-close') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+    expect((document.querySelector('.specter-request') as HTMLTextAreaElement).value).toBe('make it green');
   });
 });

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "specter": {
+      "command": "npx",
+      "args": [
+        "react-specter",
+        "bridge"
+      ]
+    }
+  }
+}

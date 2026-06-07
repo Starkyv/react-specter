@@ -12,8 +12,7 @@ Apply the pending Specter edit (react-specter select-to-edit).
 Call `mcp__specter__get_pending_edit`.
 
 - `{"pending": false}` → relay the `note` to the user (select an element in the browser overlay first, or use the other session that owns the bridge port) and STOP.
-- Otherwise you have: `sourceFile`, `sourceLine`, `component`, `elementSnippet`, `tagName`, `textContent`, `classList`, `ancestorComponents`, `instanceVsShared`, `userRequest`, `route`, `instanceCount`, and possibly `imagePaths`.
-- If `imagePaths` is non-empty, the developer attached screenshots/mocks — view each path with the Read tool BEFORE planning; the request likely references them ("make it look like this").
+- Otherwise you have: `sourceFile`, `sourceLine`, `component`, `elementSnippet`, `tagName`, `textContent`, `classList`, `ancestorComponents`, `instanceVsShared`, `userRequest`, `route`, `instanceCount`.
 
 ## Step 2 — Anchor, then relocate if needed
 

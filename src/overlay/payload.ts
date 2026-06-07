@@ -11,6 +11,13 @@ const CHAIN_MAX = 8;
 
 export type InstanceVsShared = 'instance' | 'shared';
 
+/** An image attached to the request (pasted, dropped, or picked). */
+export interface SpecterImage {
+  name: string;
+  mediaType: string;
+  dataBase64: string;
+}
+
 export interface SpecterPayload {
   sourceFile: string;
   sourceLine: number;
@@ -24,6 +31,7 @@ export interface SpecterPayload {
   userRequest: string;
   route: string;
   instanceCount: number;
+  images: SpecterImage[];
 }
 
 /** Nearest annotated element, starting from (and including) `el`. */
@@ -67,6 +75,12 @@ export function getAncestorComponents(anchor: HTMLElement): string[] {
   return getAncestorChain(anchor).map(componentOf).filter(Boolean);
 }
 
+/** CSS.escape with a quoted-attribute-value fallback (jsdom, raw-ESM edge contexts). */
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value);
+  return value.replace(/["\\]/g, '\\$&');
+}
+
 /**
  * How many times the anchor's exact JSX call site (file + line) is currently
  * rendered — the precise "this element appears N times" signal (mapped rows,
@@ -76,7 +90,7 @@ export function getAncestorComponents(anchor: HTMLElement): string[] {
 export function countInstances(anchor: HTMLElement): number {
   const { file, line } = sourceOf(anchor);
   if (!file) return 1;
-  return document.querySelectorAll(`[${FILE_ATTR}="${CSS.escape(file)}"][${LINE_ATTR}="${line}"]`).length;
+  return document.querySelectorAll(`[${FILE_ATTR}="${cssEscape(file)}"][${LINE_ATTR}="${line}"]`).length;
 }
 
 /** SVG-safe class list (SVG `className` is an SVGAnimatedString). */
@@ -96,10 +110,11 @@ function truncateSnippet(html: string): string {
 
 export function buildPayload(
   anchor: HTMLElement,
-  opts: { userRequest: string; instanceVsShared: InstanceVsShared }
+  opts: { userRequest: string; instanceVsShared: InstanceVsShared; images?: SpecterImage[] }
 ): SpecterPayload {
   const { file, line } = sourceOf(anchor);
   return {
+    images: opts.images ?? [],
     sourceFile: file,
     sourceLine: line,
     component: componentOf(anchor),
@@ -126,10 +141,14 @@ export function serializeInstruction(payload: SpecterPayload): string {
     '',
     '## Request',
     payload.userRequest,
+    ...(payload.images.length
+      ? ['', `(Note: ${payload.images.length} attached image(s) could not be included — clipboard delivery is text-only.)`]
+      : []),
     '',
     '## Selected element context',
     '```json',
-    JSON.stringify(payload, null, 2),
+    // Images are megabytes of base64 — never dump them into clipboard text.
+    JSON.stringify({ ...payload, images: undefined }, null, 2),
     '```',
     '',
   ].join('\n');

@@ -8,7 +8,10 @@ export interface BridgeOptions {
 
 export interface Bridge {
   httpServer: http.Server;
-  mcpServer: { connect(transport: unknown): Promise<void> };
+  mcpServer: {
+    connect(transport: unknown): Promise<void>;
+    server: { notification(notification: { method: string; params?: unknown }): Promise<void> };
+  };
   getPending(): { payload: unknown; queuedAt: string } | null;
   clearPending(): void;
   isHttpActive(): boolean;

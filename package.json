@@ -18,6 +18,14 @@
   ],
   "license": "MIT",
   "author": "Mothil V <mothil@datagenie.ai>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Starkyv/react-specter.git"
+  },
+  "homepage": "https://github.com/Starkyv/react-specter#readme",
+  "bugs": {
+    "url": "https://github.com/Starkyv/react-specter/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=18.17"

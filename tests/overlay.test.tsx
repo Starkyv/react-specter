@@ -44,6 +44,21 @@ describe('mountSpecter', () => {
     expect(document.getElementById('specter-root')).toBeNull();
   });
 
+  it('gateKey: mounts only when the localStorage key holds a value', () => {
+    localStorage.removeItem('specter-gate');
+
+    // No key → no mount.
+    mountSpecter({ gateKey: 'specter-gate' });
+    expect(document.getElementById('specter-root')).toBeNull();
+
+    // Key set → mounts.
+    localStorage.setItem('specter-gate', '1');
+    mountSpecter({ gateKey: 'specter-gate' });
+    expect(document.getElementById('specter-root')).toBeTruthy();
+
+    localStorage.removeItem('specter-gate');
+  });
+
   it('toggle opens the prompt box; its ✕ hides it and brings the toggle back', async () => {
     mountSpecter();
     await waitFor(() => document.querySelector('.specter-toggle'));
@@ -83,7 +98,7 @@ describe('mountSpecter', () => {
     expect(document.querySelector('.specter-status')?.textContent).toContain('Online');
   });
 
-  it('a custom onSend replaces the default delivery and shows its feedback', async () => {
+  it('a custom onSend adds its own labelled button that fires the callback', async () => {
     // A stamped app element to capture.
     const target = document.createElement('button');
     target.setAttribute('data-specter-file', 'src/Demo.tsx');
@@ -94,6 +109,7 @@ describe('mountSpecter', () => {
 
     const sent: SpecterPayload[] = [];
     mountSpecter({
+      onSendText: 'Queue it',
       onSend: payload => {
         sent.push(payload);
         return 'Queued in MyTracker ✓';
@@ -104,18 +120,25 @@ describe('mountSpecter', () => {
     await waitFor(() => document.querySelector('.specter-toggle'));
     (document.querySelector('.specter-toggle') as HTMLElement).click();
     await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+
+    // The agent send button is always present; the custom button only when onSend is set.
+    const customSend = document.querySelector('.specter-custom-send') as HTMLButtonElement;
+    expect(customSend).toBeTruthy();
+    expect(document.querySelector('.specter-send')).toBeTruthy(); // default agent delivery stays
+    expect(customSend.textContent).toBe('Queue it'); // onSendText override
+
     (document.querySelector('.specter-inspect') as HTMLElement).click();
     await waitFor(() => document.querySelector('.specter-inspect.is-active'));
     target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     await waitFor(() => document.querySelector('.specter-breadcrumb'));
 
-    // Type a request and send.
+    // Type a request and trigger the custom button.
     const textarea = document.querySelector('.specter-request') as HTMLTextAreaElement;
     const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
     setValue.call(textarea, 'rename it');
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await waitFor(() => !(document.querySelector('.specter-send') as HTMLButtonElement).disabled);
-    (document.querySelector('.specter-send') as HTMLElement).click();
+    await waitFor(() => !(document.querySelector('.specter-custom-send') as HTMLButtonElement).disabled);
+    (document.querySelector('.specter-custom-send') as HTMLElement).click();
 
     await waitFor(() => sent.length === 1);
     expect(sent[0]).toMatchObject({
@@ -128,6 +151,42 @@ describe('mountSpecter', () => {
     await waitFor(() => document.querySelector('.specter-feedback')?.textContent === 'Queued in MyTracker ✓');
 
     target.remove();
+  });
+
+  it('defaults the onSend button label to "Send"', async () => {
+    mountSpecter({ onSend: () => {} });
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-custom-send'));
+    expect(document.querySelector('.specter-custom-send')?.textContent).toBe('Send');
+  });
+
+  it('shows no custom-send button when onSend is not configured', async () => {
+    mountSpecter();
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+    expect(document.querySelector('.specter-custom-send')).toBeNull();
+    expect(document.querySelector('.specter-send')).toBeTruthy();
+  });
+
+  it('disableMCP hides the agent send button and status indicator, keeps the custom send', async () => {
+    // fetch must never be called for a health probe when MCP is disabled.
+    const fetchSpy = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    mountSpecter({ disableMCP: true, onSend: () => {} });
+    await waitFor(() => document.querySelector('.specter-toggle'));
+    (document.querySelector('.specter-toggle') as HTMLElement).click();
+    await waitFor(() => document.querySelector('.specter-promptbox:not(.is-hidden)'));
+
+    expect(document.querySelector('.specter-send')).toBeNull(); // agent delivery hidden
+    expect(document.querySelector('.specter-status')).toBeNull(); // online/offline hidden
+    expect(document.querySelector('.specter-custom-send')).toBeTruthy(); // custom action stays
+
+    // Give the (skipped) poll interval a chance — it must not have fired.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('attached images show as thumbnails and travel in the payload', async () => {
@@ -169,8 +228,8 @@ describe('mountSpecter', () => {
     const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
     setValue.call(textarea, 'match the mock');
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await waitFor(() => !(document.querySelector('.specter-send') as HTMLButtonElement).disabled);
-    (document.querySelector('.specter-send') as HTMLElement).click();
+    await waitFor(() => !(document.querySelector('.specter-custom-send') as HTMLButtonElement).disabled);
+    (document.querySelector('.specter-custom-send') as HTMLElement).click();
 
     await waitFor(() => sent.length === 1);
     expect(sent[0].images).toHaveLength(1);

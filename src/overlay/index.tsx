@@ -37,6 +37,15 @@ function isProductionBuild(): boolean {
   }
 }
 
+/** Is a non-empty value stored under `key`? Guards against blocked storage. */
+function hasLocalStorageFlag(key: string): boolean {
+  try {
+    return !!window.localStorage.getItem(key);
+  } catch {
+    return false; // privacy mode / disabled storage
+  }
+}
+
 /**
  * Mount the inspector overlay. Idempotent — a second call (HMR, React strict
  * mode) re-uses the existing mount. Returns an unmount function.
@@ -45,6 +54,11 @@ export function mountSpecter(options: SpecterOptions = {}): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {}; // SSR no-op
   if (options.enabled === false) return () => {};
   if (isProductionBuild() && !options.force) return () => {};
+  // Runtime opt-in: when gateKey is set, only mount if that localStorage key
+  // holds a value. Set it in devtools and reload to enable per-browser.
+  // (Note: this gates the OVERLAY only — the data-specter-* attributes are
+  // baked in at build time and present regardless.)
+  if (options.gateKey && !hasLocalStorageFlag(options.gateKey)) return () => {};
 
   setConfig(options);
   if (document.getElementById(ROOT_ID)) return unmountSpecter; // idempotent (HMR re-runs)

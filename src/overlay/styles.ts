@@ -595,6 +595,43 @@ const css = `
   box-shadow: none;
 }
 
+/* Custom onSend action — a light, professional pill beside the agent send. */
+.specter-custom-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 18px;
+  border: 1px solid #e3d9f6;
+  border-radius: 999px;
+  background: #f7f3fe;
+  color: #6d28d9;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(40, 30, 90, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+.specter-custom-send:hover:not(:disabled) {
+  background: #efe7fd;
+  border-color: #c8b3f0;
+  color: #5b21b6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(109, 40, 217, 0.16);
+}
+.specter-custom-send:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+.specter-custom-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .specter-feedback {
   margin: 10px 0 0;
   font-size: 12px;
@@ -669,6 +706,7 @@ const css = `
   .specter-promptbox,
   .specter-shell,
   .specter-send,
+  .specter-custom-send,
   .specter-close,
   .specter-inspect,
   .specter-iconbtn,

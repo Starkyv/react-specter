@@ -32,6 +32,7 @@ export default function Inspector() {
     bridgeOnline,
     isSending,
     handleSendToAgent,
+    handleCustomSend,
     handleCopyTicket,
   } = useInspector();
 
@@ -60,6 +61,7 @@ export default function Inspector() {
         bridgeOnline={bridgeOnline}
         isSending={isSending}
         onSendToAgent={handleSendToAgent}
+        onCustomSend={handleCustomSend}
         onCopyTicket={handleCopyTicket}
         onToggleInspect={toggleInspect}
         onClearSelection={clearSelection}

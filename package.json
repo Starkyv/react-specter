@@ -1,6 +1,6 @@
 {
   "name": "react-specter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Select-to-edit for React apps: click an element in your running dev app, describe the change in plain language, and your AI coding agent edits the real source file.",
   "keywords": [
     "react",

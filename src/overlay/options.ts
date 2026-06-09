@@ -24,6 +24,13 @@ export interface SpecterOptions {
    */
   force?: boolean;
   /**
+   * Runtime opt-in gate. When set, the overlay mounts only if this key holds a
+   * value in `localStorage` — e.g. `gateKey: 'specter'`, then enable per-browser
+   * with `localStorage.setItem('specter', '1')` and reload. Gates the overlay
+   * UI only; the build-time `data-specter-*` attributes are unaffected.
+   */
+  gateKey?: string;
+  /**
    * Where the local MCP bridge listens. Default http://127.0.0.1:7331/pending-edit.
    * When set explicitly the bridge is always attempted; by default it is only
    * attempted when the page itself runs on localhost (avoids mixed-content
@@ -38,11 +45,21 @@ export interface SpecterOptions {
   /** Display name of your coding agent in the UI. Default "Claude". */
   agentLabel?: string;
   /**
-   * Custom action for the send button. When provided it REPLACES the default
-   * bridge/clipboard delivery — wire the payload to your own backend, agent,
-   * or queue. Pair with `agentLabel` to relabel the button.
+   * Custom send action. When provided, an extra send button appears alongside
+   * the default agent delivery and calls this with the assembled payload —
+   * wire it to your own backend, agent, or queue. Return a string to show as
+   * feedback (omit for a plain "Sent ✓"); throw to surface a failure.
    */
   onSend?: SendFn;
+  /** Label for the `onSend` button. Default "Send". */
+  onSendText?: string;
+  /**
+   * Turn off everything MCP/bridge-related. Default false. When true, the
+   * agent "Send to <agentLabel>" button and the bridge online/offline status
+   * indicator are hidden, and the bridge health check never runs — for setups
+   * that deliver exclusively through a custom `onSend`.
+   */
+  disableMCP?: boolean;
   /** Cmd/Ctrl+Shift+E shows/hides the prompt box. Set false to disable. Default true. */
   hotkey?: boolean;
 }
@@ -54,6 +71,8 @@ export interface ResolvedSpecterConfig {
   agentLabel: string;
   hotkey: boolean;
   onSend: SendFn | null;
+  onSendText: string;
+  disableMCP: boolean;
 }
 
 const DEFAULT_RULES_PREAMBLE = [
@@ -72,6 +91,8 @@ function resolve(options: SpecterOptions): ResolvedSpecterConfig {
     agentLabel: options.agentLabel ?? 'Claude',
     hotkey: options.hotkey ?? true,
     onSend: options.onSend ?? null,
+    onSendText: options.onSendText ?? 'Send',
+    disableMCP: options.disableMCP ?? false,
   };
 }
 

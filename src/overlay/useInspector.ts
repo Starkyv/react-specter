@@ -190,8 +190,9 @@ export default function useInspector() {
 
   // While the box is open: poll the bridge's /health so the status dot tracks
   // whether the agent session (which owns the bridge process) is alive.
+  // Skipped entirely when MCP is disabled — no bridge to watch.
   useEffect(() => {
-    if (!panelOpen) return;
+    if (!panelOpen || getConfig().disableMCP) return;
     let cancelled = false;
     const check = async () => {
       const ok = await checkBridgeHealth();
@@ -232,49 +233,62 @@ export default function useInspector() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [panelOpen, selecting, anchor, chain.length, hidePanel]);
 
-  const handleSendToAgent = useCallback(async () => {
-    if (!anchor || !userRequest.trim() || isSending) return;
-    const payload = buildPayload(anchor, {
-      userRequest: userRequest.trim(),
-      instanceVsShared,
-      images,
-    });
+  // Shared send core. `custom` routes to the user's onSend callback; otherwise
+  // the default bridge/clipboard delivery. Both capture the payload, then clear
+  // the form so a follow-up selection starts fresh.
+  const runSend = useCallback(
+    async (custom: boolean) => {
+      if (!anchor || !userRequest.trim() || isSending) return;
+      const payload = buildPayload(anchor, {
+        userRequest: userRequest.trim(),
+        instanceVsShared,
+        images,
+      });
 
-    // Clear the form and selection immediately — payload is already captured.
-    setIsSending(true);
-    setFeedback('');
-    setUserRequest('');
-    setImages([]);
-    setChain([]);
-    setChainIndex(0);
-    setInstanceVsShared('shared');
+      // Clear the form and selection immediately — payload is already captured.
+      setIsSending(true);
+      setFeedback('');
+      setUserRequest('');
+      setImages([]);
+      setChain([]);
+      setChainIndex(0);
+      setInstanceVsShared('shared');
 
-    try {
-      const onSend = getConfig().onSend;
-      if (onSend) {
-        const seq = createSeq.current;
-        const message = await onSend(payload);
-        if (seq !== createSeq.current) return;
-        setFeedback(typeof message === 'string' && message ? message : 'Sent ✓');
-      } else {
-        const result = await deliver(payload);
-        if (result.method === 'bridge') setBridgeOnline(true);
-        else setBridgeOnline(prev => (prev === null ? prev : false));
-        if (result.method === 'bridge') {
-          setFeedback(
-            result.channelPushed
-              ? 'Sent to Claude, applies automatically in a --channels session (else run /apply-edit)'
-              : 'Sent to bridge, run /apply-edit in your agent'
-          );
-        } else if (result.method === 'clipboard') setFeedback('Copied ✓ — paste into your agent');
-        else setFeedback('Copy failed — clipboard unavailable in this context');
+      const seq = createSeq.current;
+      try {
+        if (custom) {
+          const onSend = getConfig().onSend;
+          if (!onSend) return;
+          const message = await onSend(payload);
+          if (seq !== createSeq.current) return; // a new selection superseded this send
+          setFeedback(typeof message === 'string' && message ? message : 'Sent ✓');
+        } else {
+          const result = await deliver(payload);
+          if (seq !== createSeq.current) return;
+          if (result.method === 'bridge') setBridgeOnline(true);
+          else setBridgeOnline(prev => (prev === null ? prev : false));
+          if (result.method === 'bridge') {
+            setFeedback(
+              result.channelPushed
+                ? 'Sent to Claude, applies automatically in a --channels session (else run /apply-edit)'
+                : 'Sent to bridge, run /apply-edit in your agent'
+            );
+          } else if (result.method === 'clipboard') setFeedback('Copied ✓ — paste into your agent');
+          else setFeedback('Copy failed — clipboard unavailable in this context');
+        }
+      } catch (err) {
+        if (seq === createSeq.current) {
+          setFeedback(err instanceof Error && err.message ? `Send failed — ${err.message}` : 'Send failed');
+        }
+      } finally {
+        setIsSending(false);
       }
-    } catch (err) {
-      setFeedback(err instanceof Error && err.message ? `Send failed — ${err.message}` : 'Send failed');
-    } finally {
-      setIsSending(false);
-    }
-  }, [anchor, userRequest, instanceVsShared, images, isSending]);
+    },
+    [anchor, userRequest, instanceVsShared, images, isSending]
+  );
+
+  const handleSendToAgent = useCallback(() => runSend(false), [runSend]);
+  const handleCustomSend = useCallback(() => runSend(true), [runSend]);
 
   // Auto-clear feedback after 5 s so it never lingers indefinitely.
   useEffect(() => {
@@ -318,6 +332,7 @@ export default function useInspector() {
     bridgeOnline,
     isSending,
     handleSendToAgent,
+    handleCustomSend,
     handleCopyTicket,
   };
 }

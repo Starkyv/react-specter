@@ -195,23 +195,26 @@ mountSpecter({ agentLabel: 'Claude', hotkey: true });
 |---|---|---|
 | `enabled` | `true` | Hard off-switch. |
 | `force` | `false` | Allow mounting in a production build (deliberately stamped internal deploys). |
+| `gateKey` | – | Runtime opt-in: when set, the overlay mounts only if this `localStorage` key holds a value. Gates the UI only — see note below. |
 | `bridgeUrl` | `http://127.0.0.1:7331/pending-edit` | Bridge endpoint. When set explicitly, the bridge is always attempted; by default only when the page runs on localhost. |
 | `rulesPreamble` | generic rules | Text prepended to every clipboard instruction — encode your repo's conventions here. |
 | `agentLabel` | `"Claude"` | Display name on the send button. |
 | `hotkey` | `true` | ⌘⇧E / Ctrl⇧E shows/hides the prompt box. |
-| `onSend` | – | Custom send action — **replaces** the default bridge/clipboard delivery; see below. |
+| `onSend` | – | Custom send action — **adds** a second send button alongside agent delivery; see below. |
+| `onSendText` | `"Send"` | Label for the `onSend` button. |
+| `disableMCP` | `false` | Hide the agent send button + bridge status indicator and skip the health check — for `onSend`-only setups with no MCP bridge. |
 
 `mountSpecter` returns an unmount function; `unmountSpecter()` is also exported.
 
 ### Custom send action (`onSend`)
 
-When `onSend` is set, clicking the send button calls it with the assembled payload instead of the bridge/clipboard path — wire it to your own backend, agent, or queue. Return a string to show as the feedback line (omit it for a plain "Sent ✓"); throw to show a failure. The button shows *Sending…* while a returned promise is in flight. Pair with `agentLabel` to relabel the button.
+When `onSend` is set, a **second send button** appears next to the default agent-delivery button and calls your callback with the assembled payload — wire it to your own backend, agent, or queue. The default send (bridge/clipboard → `/apply-edit`) stays available alongside it. Return a string to show as the feedback line (omit it for a plain "Sent ✓"); throw to show a failure. The button label is `"Send"` by default — override it with `onSendText`.
 
 ```ts
 import { mountSpecter, type SpecterPayload } from 'react-specter';
 
 mountSpecter({
-  agentLabel: 'DevBot',
+  onSendText: 'Queue for DevBot',
   onSend: async (payload: SpecterPayload) => {
     await fetch('/api/devbot/edits', {
       method: 'POST',
@@ -242,6 +245,24 @@ For a deployed **internal dev environment** where testers should inspect element
 2. Mount the overlay with `force: true` behind the same flag.
 
 Trade-offs: slightly larger bundles (three attributes per host element) and repo file paths visible in the DOM — fine internally, never for customer-facing deploys.
+
+### Gating with `localStorage` — two layers, two times
+
+A common ask: *"only turn this on when a `localStorage` key is set."* The catch is **the `data-specter-*` attributes are stamped at build time** (in your bundler's Node process, before the browser exists), so `localStorage` — a browser-runtime value — can't add or remove them. Once a build is stamped, the attributes and their file paths are in the served JS and DOM for everyone.
+
+What each layer controls:
+
+- **Attributes (build time)** → the `enabled` flag on the adapter. On for `dev` by default; forced into a build only via your own env flag. This is the *only* lever for whether paths appear in the DOM — `localStorage` cannot hide them.
+- **Overlay (runtime)** → the `gateKey` option. Ship one stamped build to everyone, and have the inspector mount only for browsers that opted in:
+
+```ts
+mountSpecter({ force: true, gateKey: 'specter' });
+// then, in a tester's devtools console:
+//   localStorage.setItem('specter', '1')   → reload, inspector appears
+//   localStorage.removeItem('specter')      → reload, it's gone
+```
+
+`gateKey` is read once at mount, so set it and reload. It hides the UI, not the attributes — if you don't want paths in the DOM at all, leave the build unstamped instead.
 
 Verify any build is clean:
 

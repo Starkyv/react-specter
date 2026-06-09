@@ -37,6 +37,7 @@ export interface PromptBoxProps {
   bridgeOnline: boolean | null;
   isSending: boolean;
   onSendToAgent: () => void;
+  onCustomSend: () => void;
   onCopyTicket: () => void;
   onToggleInspect: () => void;
   onClearSelection: () => void;
@@ -70,12 +71,14 @@ export default function PromptBox({
   bridgeOnline,
   isSending,
   onSendToAgent,
+  onCustomSend,
   onCopyTicket,
   onToggleInspect,
   onClearSelection,
   onHide,
 }: PromptBoxProps) {
-  const { agentLabel } = getConfig();
+  const { agentLabel, onSend, onSendText, disableMCP } = getConfig();
+  const sendDisabled = !anchor || !userRequest.trim() || isSending;
   const source = anchor ? sourceOf(anchor) : null;
 
   const boxRef = useRef<HTMLElement>(null);
@@ -207,7 +210,7 @@ export default function PromptBox({
           </span> */}
           <span className="specter-title">Specter</span>
           {/* <span className="specter-powered">Powered by {agentLabel}</span> */}
-          {bridgeOnline !== null && (
+          {!disableMCP && bridgeOnline !== null && (
             <span
               className={cx(
                 "specter-status",
@@ -387,26 +390,45 @@ export default function PromptBox({
             >
               <CopyIcon size={15} />
             </button>
-            <button
-              type="button"
-              className="specter-send"
-              onClick={onSendToAgent}
-              disabled={!anchor || !userRequest.trim() || isSending}
-              aria-label={isSending ? "Sending…" : `Send to ${agentLabel}`}
-              title={
-                !anchor
-                  ? "Select an element first"
-                  : isSending
-                  ? "Sending…"
-                  : `Send to ${agentLabel}`
-              }
-            >
-              {isSending ? (
-                <span className="specter-spinner" aria-hidden="true" />
-              ) : (
-                <SendIcon size={15} />
-              )}
-            </button>
+            {!disableMCP && (
+              <button
+                type="button"
+                className="specter-send"
+                onClick={onSendToAgent}
+                disabled={sendDisabled}
+                aria-label={isSending ? "Sending…" : `Send to ${agentLabel}`}
+                title={
+                  !anchor
+                    ? "Select an element first"
+                    : isSending
+                    ? "Sending…"
+                    : `Send to ${agentLabel}`
+                }
+              >
+                {isSending ? (
+                  <span className="specter-spinner" aria-hidden="true" />
+                ) : (
+                  <SendIcon size={15} />
+                )}
+              </button>
+            )}
+            {onSend && (
+              <button
+                type="button"
+                className="specter-custom-send"
+                onClick={onCustomSend}
+                disabled={sendDisabled}
+                title={
+                  !anchor
+                    ? "Select an element first"
+                    : isSending
+                    ? "Sending…"
+                    : onSendText
+                }
+              >
+                {onSendText}
+              </button>
+            )}
           </div>
 
           {feedback && <p className="specter-feedback">{feedback}</p>}
